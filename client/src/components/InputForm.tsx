@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { GenerateInput, BrandTone, GenerateResponse } from '../../../shared/types.js'
 import './InputForm.css'
+import logoUrl from '../../assets/images/logo.png'
 
 interface InputFormProps {
   onGenerate: (input: GenerateInput) => void
@@ -59,7 +60,9 @@ export function InputForm({ onGenerate, onExport, loading, response }: InputForm
   return (
     <div className="input-form">
       <div className="form-header">
-        <img src="/assets/images/logo.png" alt="Logo" className="form-logo" />
+        <a href="https://sandhillsgeeks.com" target="_blank" rel="noreferrer">
+          <img src={logoUrl} alt="Logo" className="form-logo" />
+        </a>
         <h2>Generate Brand Package</h2>
       </div>
 
