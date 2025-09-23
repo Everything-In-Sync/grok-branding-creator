@@ -1,0 +1,245 @@
+PROJECT NAME:
+Branding Package Generator
+
+GOAL:
+Generate professional brand starter packages from a single high level input. The tool asks for an industry and optional business context to guide generation. The business context fields are for internal reference only and must not influence the algorithmic output unless explicitly enabled. The app returns color palette options plus exportable assets and a lightweight brand sheet.
+
+PRIMARY USER:
+Internal operator at Sandhills Geeks creating fast brand starters for clients.
+
+NON GOALS:
+No public user accounts. No payments. No external API dependency required for the core palette logic.
+
+TECH STACK OPTIONS:
+Option A PHP 8 plus Slim or Laravel minimal routes plus Twig or plain PHP views
+Option B JavaScript Node 20 plus Express for API plus Vite plus React for UI
+Either option must ship as a single self contained app that can be hosted on a basic VPS
+
+ACCESSIBILITY AND QUALITY BAR:
+All generated palettes must satisfy WCAG 2.2 contrast for primary text over background and for button text on primary and accent
+Include color blindness simulation checks via matrix transforms and ensure at least one accessible pairing per palette
+Deterministic output when a seed is provided so results can be reproduced
+
+CORE INPUTS UI:
+Field Industry single line text with autocomplete from a curated industry list
+Field Brand Tone optional select conservative modern playful premium eco friendly trustworthy energetic minimal artisan techie healthcare finance hospitality education construction legal non profit restaurant retail beauty fitness automotive real estate
+Field Business Name optional text
+Field Tagline optional text
+Field Values optional textarea comma separated words
+Field Audience optional textarea
+Field Competitors optional textarea URLs or names
+Field Notes optional long textarea
+Field Random Seed optional numeric. Same seed plus same industry must return same palettes
+Field Theme Preference optional select light first dark first neutral first
+Toggle Use Business Context in Generation default Off. When Off the algorithm must ignore business text fields for outputs
+
+IMPORTANT RULE:
+When Use Business Context in Generation is Off only Industry plus optional Brand Tone plus Theme Preference plus Seed may affect outputs
+
+OUTPUTS:
+Three palette options returned in one response. Each palette has
+Name auto generated like Coastal Modern or Steelworks Professional
+Five swatches in order 100 to 900 or Base plus A1 plus A2 plus N plus Contrast
+Roles primary secondary accent neutral background
+For each role provide hex rgb hsl and relative luminance
+Provide recommended text color light or dark and contrast ratio
+Provide use guidance one sentence for each role
+Provide sample button and heading preview in UI for instant contrast check
+
+ADDITIONAL BRAND STARTERS PER PALETTE:
+Typeface suggestions two pairs headline plus body with open source fallbacks. Provide Google Fonts names with weights and import links
+Icon style suggestion outline rounded sharp geometric or handcrafted plus example icon pack names when open source
+Imagery direction three adjectives plus subject hints for mood board. Example warm sunlit wood grain micro texture
+Logo concept prompts three short prompts suitable for a future logo task. Example monogram with hidden leaf motif letter S and G interlock
+
+EXPORTS:
+Download a ZIP containing
+palette.json the full structured output for the selected palette
+tokens.css CSS custom properties under root including light and dark variants
+tokens.scss SCSS variables
+tailwind.config.snippet.js Tailwind theme extension colors
+swatches.svg an SVG strip of labeled swatches
+swatches.png a raster strip 2000 by 300 with labels
+ase.adobe if feasible or provide GPL palette file gpl
+readme.txt instructions and licensing notes
+
+ARCHITECTURE:
+Layer 1 UI form plus live preview renderer. No external CDN required other than Google Fonts if selected
+Layer 2 Palette Engine pure function generatePalettes input Industry Tone Theme Seed ContextEnabled ContextData output PaletteSet
+Layer 3 Validation and Contrast WCAG utilities
+Layer 4 Exporter builds ZIP on the fly. Node uses archiver PHP uses ZipArchive
+No database required. Persist latest session to local JSON in tmp for convenience
+
+PALETTE ENGINE ALGORITHM OVERVIEW:
+Step 1 Industry to Base Hue Set
+Use a curated map from industry to a small set of base hue anchors. Example healthcare cool blue green. Construction warm orange yellow plus neutral slate. Finance deep blue navy plus conservative neutrals. Beauty soft pastels or rich jewel tones depending on Tone. Legal navy charcoal burgundy. Restaurant food safe reds greens earth tones segmented by cuisine if available
+Step 2 Tone Modifiers
+Apply saturation and lightness profiles per Brand Tone. Example premium lower saturation deeper contrast. Playful higher saturation brighter accents. Eco friendly greens plus earth neutrals with lower saturation
+Step 3 Theme Preference
+Bias background and neutral selection toward light or dark accordingly. Ensure at least one high contrast text pairing on both light and dark backgrounds
+Step 4 Harmony Rules
+Choose triad analogous complementary or split complementary based on tone and industry defaults. Clamp saturation and lightness to avoid neon or muddy results
+Step 5 Accessibility Pass
+Compute contrast for role pairs. If a role fails required thresholds iteratively adjust lightness and or choose adjacent hue while keeping harmony type constant. Require AA for normal text and AAA for UI controls when feasible. Guarantee at least 1 pairing that meets AA 4.5 1 for body text and 3.0 1 for large text
+Step 6 Determinism
+If Seed provided use seeded RNG to decide among equally valid choices so the same inputs produce the same palettes. Provide seedBack in output
+
+INDUSTRY TO HUE MAP EXAMPLE SNIPPET:
+healthcare base 195 to 210 plus 165 neutrals cool gray
+construction base 25 to 40 plus 200 accent neutrals warm gray
+legal base 210 to 230 plus 350 accent neutrals slate
+finance base 205 to 225 plus 135 accent neutrals cool gray
+beauty base 320 to 340 or 260 to 280 based on Tone neutrals soft gray
+restaurant base depends on Cuisine fallback 10 to 20 plus 120 neutrals natural gray
+technology base 200 to 220 plus 260 accent neutrals slate
+education base 200 to 210 plus 40 accent neutrals neutral gray
+real estate base 200 to 210 plus 25 accent neutrals stone
+non profit base 280 to 300 or 160 to 180 depending on Tone neutrals friendly gray
+
+DATA CONTRACT JSON SCHEMA:
+{
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "industry": {"type": "string"},
+        "brandTone": {"type": "string", "enum": ["conservative","modern","playful","premium","eco","trustworthy","energetic","minimal","artisan","techie","healthcare","finance","hospitality","education","construction","legal","nonprofit","restaurant","retail","beauty","fitness","automotive","real_estate"]},
+        "themePreference": {"type": "string", "enum": ["light","dark","neutral"]},
+        "seed": {"type": "integer"},
+        "useContext": {"type": "boolean"},
+        "context": {
+          "type": "object",
+          "properties": {
+            "businessName":{"type":"string"},
+            "tagline":{"type":"string"},
+            "values":{"type":"string"},
+            "audience":{"type":"string"},
+            "competitors":{"type":"string"},
+            "notes":{"type":"string"}
+          }
+        }
+      },
+      "required": ["industry"]
+    },
+    "palettes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name":{"type":"string"},
+          "roles":{
+            "type":"object",
+            "properties":{
+              "primary":{"$ref":"#/definitions/color"},
+              "secondary":{"$ref":"#/definitions/color"},
+              "accent":{"$ref":"#/definitions/color"},
+              "neutral":{"$ref":"#/definitions/color"},
+              "background":{"$ref":"#/definitions/color"}
+            }
+          },
+          "swatches":{
+            "type":"array",
+            "items":{"$ref":"#/definitions/color"}
+          },
+          "typography":{
+            "type":"object",
+            "properties":{
+              "headline":{"type":"string"},
+              "headlineWeights":{"type":"array","items":{"type":"integer"}},
+              "body":{"type":"string"},
+              "bodyWeights":{"type":"array","items":{"type":"integer"}},
+              "links":{"type":"array","items":{"type":"string"}}
+            }
+          },
+          "iconStyle":{"type":"string"},
+          "imagery":{"type":"array","items":{"type":"string"}},
+          "logoPrompts":{"type":"array","items":{"type":"string"}},
+          "seedBack":{"type":"integer"}
+        },
+        "required":["name","roles","swatches","typography","iconStyle","imagery","logoPrompts"]
+      },
+      "minItems":3,
+      "maxItems":3
+    }
+  },
+  "definitions":{
+    "color":{
+      "type":"object",
+      "properties":{
+        "role":{"type":"string"},
+        "hex":{"type":"string","pattern":"^#([A-Fa-f0-9]{6})$"},
+        "rgb":{"type":"array","items":{"type":"integer"},"minItems":3,"maxItems":3},
+        "hsl":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3},
+        "luminance":{"type":"number"},
+        "textOn":{"type":"string","enum":["light","dark"]},
+        "contrastOnText":{"type":"number"}
+      },
+      "required":["role","hex","rgb","hsl","luminance","textOn","contrastOnText"]
+    }
+  },
+  "required":["input","palettes"]
+}
+
+UI FLOW:
+Screen 1 Input Form left column. Live Preview right column
+User enters Industry and optional Tone Theme and Seed. Business info fields are visible with clear note internal only does not change output unless toggled
+Click Generate. Show three tabs Palette A Palette B Palette C
+Each tab shows the five roles as large tiles plus sample components heading body link button card
+Buttons Copy CSS Copy SCSS Copy Tailwind JSON Download ZIP
+Toggle Dark Preview only affects preview not token values unless Theme Preference set to dark
+Accessibility panel shows contrast scores. If any required pairing fails mark red and auto regenerate that role until it passes
+
+SERVER ROUTES OR CONTROLLERS:
+POST api generate accepts JSON per schema returns palettes JSON
+GET api export zip accepts query paletteIndex and returns ZIP built from the JSON payload and templates
+Static serve UI and assets
+
+SEEDING AND RANDOMNESS:
+Use Mulberry32 or xorshift seeded RNG for JS. Use mt_srand with seed in PHP
+All non deterministic picks must draw from the seeded RNG
+
+FONT SUGGESTION LOGIC:
+Map Tone to curated pairs
+premium Playfair Display plus Inter or Spectral plus Source Sans 3
+modern Inter plus Roboto Slab or Manrope plus Inter
+playful Righteous plus Nunito or Baloo 2 plus Mulish
+conservative EB Garamond plus Source Sans 3
+techie Space Grotesk plus Inter
+healthcare Poppins plus Source Sans 3
+legal Libre Baskerville plus Work Sans
+fallbacks system ui stacks for safety
+
+CONTRAST RULES:
+Body text on background must be at least 4.5 1. Large headings 3.0 1. Buttons plus inputs plus badges at least 4.5 1 between text and background. Calculate relative luminance from sRGB with gamma correction
+
+COLORBLIND CHECK:
+Simulate protanopia deuteranopia tritanopia. Ensure at least primary versus accent distinction remains visible by adjusting saturation and lightness if deltaE below threshold
+
+ERROR HANDLING:
+If industry not recognized pick closest match by fuzzy lookup. If tone invalid default to trustworthy. If palette generation fails after three constraint passes return safe neutral blue based fallback with accessible pairings and message
+
+PERFORMANCE:
+Generation must complete under 50 ms per palette on a 2 vCPU VPS. ZIP export under 300 ms for typical payloads
+
+TEST CASES ACCEPTANCE:
+Given Industry healthcare Tone conservative Theme light Seed 42 expect deterministic hex sets across runs
+Given Use Context Off business fields filled. Output must be identical to empty fields
+Given Theme dark ensure background is dark neutral and textOn for primary and accent resolves to light with AA contrast
+Given random seed 0 still deterministic
+Given Industry legal return at least one deep navy driven primary
+
+CLI SCRIPT OPTIONAL:
+node scripts generate demo or php artisan command to generate sample outputs for snapshot tests
+
+LICENSE AND ATTRIBUTION:
+Use only open source fonts. Include OFL text when bundling. All outputs are original token data generated by algorithm
+
+SECURITY:
+No persistence of client business details by default. If you add persistence wrap in a .env flag
+
+FUTURE ROADMAP NOT REQUIRED FOR MVP:
+Logo concept draft via procedural SVG monogram. Export full brand sheet PDF. Industry tuned imagery sampler. Admin editor for industry to hue map
+
+DONE CRITERIA:
+Form collects inputs. Palette Engine returns three accessible palettes. Exports produce ZIP with tokens and swatches. Deterministic seeds. Basic tests pass

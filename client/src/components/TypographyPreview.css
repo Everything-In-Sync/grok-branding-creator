@@ -1,0 +1,85 @@
+.typography-preview {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.font-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.font-pair {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e1e5e9;
+}
+
+.font-pair h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.font-name {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.font-weights {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.typography-samples {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sample-headline {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.sample-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #333;
+  margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .typography-preview {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .font-info {
+    flex-direction: row;
+    gap: 1rem;
+  }
+
+  .font-pair {
+    flex: 1;
+    padding: 0.75rem;
+  }
+
+  .sample-headline {
+    font-size: 1.5rem;
+  }
+
+  .sample-body {
+    font-size: 0.9rem;
+  }
+}
