@@ -34,16 +34,20 @@ export function InputForm({ onGenerate, onExport, loading, response }: InputForm
   const [tones, setTones] = useState<BrandTone[]>([])
 
   useEffect(() => {
-    // Load available industries and tones
+    // Provide immediate defaults for static hosting
+    setIndustries(INDUSTRIES)
+    setTones(BRAND_TONES)
+
+    // Try to replace with server-provided values if available
     fetch('/api/industries')
-      .then(res => res.json())
-      .then(data => setIndustries(data.industries))
-      .catch(console.error)
+      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then(data => Array.isArray(data?.industries) && setIndustries(data.industries))
+      .catch(() => {})
 
     fetch('/api/tones')
-      .then(res => res.json())
-      .then(data => setTones(data.tones))
-      .catch(console.error)
+      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then(data => Array.isArray(data?.tones) && setTones(data.tones))
+      .catch(() => {})
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
