@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { GenerateInput, GenerateResponse, Palette } from '../../shared/types.js'
-import { InputForm } from './components/InputForm.tsx'
-import { PalettePreview } from './components/PalettePreview.tsx'
-import { ContactFormModal, ContactFormData } from './components/ContactFormModal.tsx'
+import { InputForm } from './components/InputForm'
+import { PalettePreview } from './components/PalettePreview'
+import { ContactFormModal, ContactFormData } from './components/ContactFormModal'
 import './App.css'
 
 function App() {
@@ -143,10 +143,17 @@ function App() {
       // Send email with contact data and content
       await sendExportEmail(contactData, palette, content, selectedExportType)
 
-      // Copy to clipboard for CSS/SCSS/Tailwind
-      if (selectedExportType !== 'zip') {
-        await navigator.clipboard.writeText(content)
-        alert(`${selectedExportType.toUpperCase()} copied to clipboard! We've also sent it to your email.`)
+      // Copy to clipboard for CSS/SCSS/Tailwind with safe fallback
+      if (selectedExportType === 'css' || selectedExportType === 'scss' || selectedExportType === 'tailwind') {
+        const copied = await copyTextToClipboard(content)
+        if (copied) {
+          alert(`${selectedExportType.toUpperCase()} copied to clipboard! We've also sent it to your email.`)
+        } else {
+          // As a fallback, download the content as a file so the user still gets it immediately
+          const filename = `export.${selectedExportType === 'tailwind' ? 'js' : selectedExportType}`
+          downloadTextFile(content, filename)
+          alert(`We emailed your ${selectedExportType.toUpperCase()}. Clipboard copy was blocked, so we downloaded a file instead.`)
+        }
       }
 
       setModalOpen(false)
@@ -156,6 +163,45 @@ function App() {
     } finally {
       setExportLoading(false)
     }
+  }
+
+  // Clipboard helper with robust fallbacks
+  async function copyTextToClipboard(text: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+        return true
+      }
+    } catch (_) {
+      // continue to fallback
+    }
+    try {
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.top = '-1000px'
+      textArea.style.left = '-1000px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      return successful
+    } catch (_) {
+      return false
+    }
+  }
+
+  function downloadTextFile(text: string, filename: string) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const generateCSSWithFonts = (palette: Palette): string => {
