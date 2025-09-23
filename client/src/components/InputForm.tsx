@@ -67,7 +67,10 @@ export function InputForm({ onGenerate, loading }: InputFormProps) {
 
   return (
     <div className="input-form">
-      <h2>Generate Brand Package</h2>
+      <div className="form-header">
+        <img src="/assets/images/logo.png" alt="Logo" className="form-logo" />
+        <h2>Generate Brand Package</h2>
+      </div>
 
       <form onSubmit={handleSubmit}>
         {/* Industry */}
