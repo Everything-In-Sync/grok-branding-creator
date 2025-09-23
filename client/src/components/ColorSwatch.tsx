@@ -9,7 +9,8 @@ interface ColorSwatchProps {
 }
 
 export function ColorSwatch({ color, role, darkPreview = false }: ColorSwatchProps) {
-  const textColor = darkPreview ? '#ffffff' : color.textOn === 'light' ? '#ffffff' : '#000000'
+  // The info panel has a near-black background, so use white text for readability
+  const textColor = '#ffffff'
   const bgColor = darkPreview && role === 'background' ? '#1a1a1a' : color.hex
 
   return (

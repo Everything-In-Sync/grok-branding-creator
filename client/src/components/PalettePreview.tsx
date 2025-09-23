@@ -6,14 +6,15 @@ import './PalettePreview.css'
 
 interface PalettePreviewProps {
   response: GenerateResponse
-  onExport: (paletteIndex: number) => void
+  onExport: (type: 'css' | 'scss' | 'tailwind' | 'zip') => void
+  selectedPaletteIndex: number
+  onPaletteSelect: (index: number) => void
 }
 
-export function PalettePreview({ response, onExport }: PalettePreviewProps) {
-  const [selectedPalette, setSelectedPalette] = useState(0)
+export function PalettePreview({ response, onExport, selectedPaletteIndex, onPaletteSelect }: PalettePreviewProps) {
   const [darkPreview, setDarkPreview] = useState(false)
 
-  const palette = response.palettes[selectedPalette]
+  const palette = response.palettes[selectedPaletteIndex]
 
   const handleCopyCSS = () => {
     const css = generateCSSVariables(palette)
@@ -36,8 +37,8 @@ export function PalettePreview({ response, onExport }: PalettePreviewProps) {
         {response.palettes.map((p, index) => (
           <button
             key={index}
-            className={`tab-button ${selectedPalette === index ? 'active' : ''}`}
-            onClick={() => setSelectedPalette(index)}
+            className={`tab-button ${selectedPaletteIndex === index ? 'active' : ''}`}
+            onClick={() => onPaletteSelect(index)}
           >
             {p.name}
           </button>
@@ -101,24 +102,6 @@ export function PalettePreview({ response, onExport }: PalettePreviewProps) {
               />
               Dark Preview
             </label>
-          </div>
-
-          <div className="control-group">
-            <button onClick={handleCopyCSS} className="copy-button">
-              Copy CSS
-            </button>
-            <button onClick={handleCopySCSS} className="copy-button">
-              Copy SCSS
-            </button>
-            <button onClick={handleCopyTailwind} className="copy-button">
-              Copy Tailwind
-            </button>
-            <button
-              onClick={() => onExport(selectedPalette)}
-              className="export-button"
-            >
-              Download ZIP
-            </button>
           </div>
         </div>
 

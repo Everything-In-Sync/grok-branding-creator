@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { paletteRoutes } from './routes/palettes.js';
 import { exportRoutes } from './routes/export.js';
+import { emailRoutes } from './routes/email.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
@@ -19,6 +20,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api', paletteRoutes);
 app.use('/api', exportRoutes);
+app.use('/api', emailRoutes);
 // Serve static files from client build
 const clientBuildPath = path.join(__dirname, '../client');
 app.use(express.static(clientBuildPath));

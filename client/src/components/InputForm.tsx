@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { GenerateInput, BrandTone } from '../../../shared/types.js'
+import { GenerateInput, BrandTone, GenerateResponse } from '../../../shared/types.js'
 import './InputForm.css'
 
 interface InputFormProps {
   onGenerate: (input: GenerateInput) => void
+  onExport: (type: 'css' | 'scss' | 'tailwind' | 'zip') => void
   loading: boolean
+  response: GenerateResponse | null
 }
 
 const INDUSTRIES = [
@@ -22,10 +24,9 @@ const BRAND_TONES: BrandTone[] = [
 
 const THEME_PREFERENCES = ['light', 'dark', 'neutral'] as const
 
-export function InputForm({ onGenerate, loading }: InputFormProps) {
+export function InputForm({ onGenerate, onExport, loading, response }: InputFormProps) {
   const [input, setInput] = useState<GenerateInput>({
-    industry: '',
-    useContext: false
+    industry: ''
   })
 
   const [industries, setIndustries] = useState<string[]>([])
@@ -53,16 +54,6 @@ export function InputForm({ onGenerate, loading }: InputFormProps) {
 
   const updateInput = (field: keyof GenerateInput, value: any) => {
     setInput(prev => ({ ...prev, [field]: value }))
-  }
-
-  const updateContext = (field: string, value: string) => {
-    setInput(prev => ({
-      ...prev,
-      context: {
-        ...prev.context,
-        [field]: value
-      }
-    }))
   }
 
   return (
@@ -140,86 +131,23 @@ export function InputForm({ onGenerate, loading }: InputFormProps) {
           <small>Same seed + same inputs = same results</small>
         </div>
 
-        {/* Use Business Context Toggle */}
-        <div className="form-group">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={input.useContext || false}
-              onChange={(e) => updateInput('useContext', e.target.checked)}
-            />
-            Use business context in generation
-          </label>
-          <small>Business details below are for internal reference only</small>
-        </div>
-
-        {/* Business Context Fields */}
-        {input.useContext && (
-          <div className="context-fields">
-            <div className="form-group">
-              <label htmlFor="businessName">Business Name</label>
-              <input
-                type="text"
-                id="businessName"
-                value={input.context?.businessName || ''}
-                onChange={(e) => updateContext('businessName', e.target.value)}
-                placeholder="Your business name"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="tagline">Tagline</label>
-              <input
-                type="text"
-                id="tagline"
-                value={input.context?.tagline || ''}
-                onChange={(e) => updateContext('tagline', e.target.value)}
-                placeholder="Your tagline or slogan"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="values">Values</label>
-              <textarea
-                id="values"
-                value={input.context?.values || ''}
-                onChange={(e) => updateContext('values', e.target.value)}
-                placeholder="Comma-separated values (e.g., innovation, sustainability, community)"
-                rows={2}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="audience">Target Audience</label>
-              <textarea
-                id="audience"
-                value={input.context?.audience || ''}
-                onChange={(e) => updateContext('audience', e.target.value)}
-                placeholder="Describe your target audience"
-                rows={2}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="competitors">Competitors</label>
-              <textarea
-                id="competitors"
-                value={input.context?.competitors || ''}
-                onChange={(e) => updateContext('competitors', e.target.value)}
-                placeholder="Competitor names or URLs"
-                rows={2}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="notes">Additional Notes</label>
-              <textarea
-                id="notes"
-                value={input.context?.notes || ''}
-                onChange={(e) => updateContext('notes', e.target.value)}
-                placeholder="Any additional context or requirements"
-                rows={3}
-              />
+        {/* Export Options */}
+        {response && (
+          <div className="export-section">
+            <h3>Export Options</h3>
+            <div className="export-buttons">
+              <button type="button" onClick={() => onExport('css')} className="export-button">
+                Copy CSS
+              </button>
+              <button type="button" onClick={() => onExport('scss')} className="export-button">
+                Copy SCSS
+              </button>
+              <button type="button" onClick={() => onExport('tailwind')} className="export-button">
+                Copy Tailwind
+              </button>
+              <button type="button" onClick={() => onExport('zip')} className="export-button export-button-primary">
+                Download ZIP
+              </button>
             </div>
           </div>
         )}
