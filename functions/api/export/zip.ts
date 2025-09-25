@@ -40,13 +40,7 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
 
       if (mailgunAvailable) {
         const subject = `Brand ZIP - ${contactData.businessName}`
-        const html = `
-          <p>Hey ${escapeHtml(contactData.name)} at ${escapeHtml(contactData.businessName)},</p>
-          <p>Here is the ZIP package you requested with your branding assets. The ZIP includes CSS tokens, SCSS variables, a Tailwind snippet, palette JSON, and swatch previews.</p>
-          <p>Is <strong>${escapeHtml(contactData.email)}</strong> the best email to reach you?</p>
-          <p>Thanks!</p>
-        `
-        const text = `Hey ${contactData.name} at ${contactData.businessName},\n\nHere is the ZIP package you requested with your branding assets.\n\nIs ${contactData.email} the best email to reach you?\n\nThanks!`
+        const html = `<p>Hi ${escapeHtml(contactData.name)},</p><p>Attached is your brand ZIP package with styles.css, styles.scss, Tailwind snippet, and a swatch preview image.</p>`
 
         const form = new FormData()
         form.append('from', MAILGUN_FROM)
@@ -54,7 +48,6 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
         if (OWNER_EMAIL) form.append('bcc', OWNER_EMAIL)
         form.append('subject', subject)
         form.append('html', html)
-        form.append('text', text)
 
         const blob = new Blob([zipped], { type: 'application/zip' })
         form.append('attachment', blob, 'brand-package.zip')
