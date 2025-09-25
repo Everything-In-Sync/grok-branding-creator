@@ -140,13 +140,10 @@ function App() {
           return
       }
 
-      // Provide content to user first (clipboard or download)
+      // Download file for the user (no clipboard)
       if (selectedExportType === 'css' || selectedExportType === 'scss' || selectedExportType === 'tailwind') {
-        const copied = await copyTextToClipboard(content)
-        if (!copied) {
-          const filename = `brand.${selectedExportType === 'tailwind' ? 'js' : selectedExportType}`
-          downloadTextFile(content, filename)
-        }
+        const filename = `brand.${selectedExportType === 'tailwind' ? 'js' : selectedExportType}`
+        downloadTextFile(content, filename)
       }
 
       // Try to send email (non-blocking for UX)
@@ -156,6 +153,7 @@ function App() {
         console.warn('Email send failed (non-blocking):', e)
       }
 
+      alert(`We emailed your ${selectedExportType.toUpperCase()} and downloaded a file to your device.`)
       setModalOpen(false)
     } catch (err) {
       console.error('Export error:', err)
