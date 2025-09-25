@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { fileURLToPath } from 'url'
 import nodemailer from 'nodemailer'
-import { Palette } from '../../shared/types.js'
+import { Color, Palette } from '../../shared/types.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -238,8 +238,22 @@ module.exports = {
   return config.join('\n')
 }
 
+function getSwatches(palette: Palette): Color[] {
+  if (Array.isArray((palette as any).swatches) && palette.swatches.length) {
+    return palette.swatches
+  }
+
+  return [
+    palette.roles.primary,
+    palette.roles.secondary,
+    palette.roles.accent,
+    palette.roles.neutral,
+    palette.roles.background,
+  ]
+}
+
 function generateSVGSwatches(palette: Palette): string {
-  const swatches = palette.swatches
+  const swatches = getSwatches(palette)
   const swatchWidth = 200
   const swatchHeight = 60
   const totalHeight = swatchHeight * swatches.length
@@ -346,11 +360,12 @@ Typography suggestions use open-source fonts available via Google Fonts.
 }
 
 function generateGPLPalette(palette: Palette): string {
+  const swatches = getSwatches(palette)
   const gpl = [`GIMP Palette
 Name: ${palette.name}
 Columns: 5
 #
-${palette.swatches.map(color =>
+${swatches.map(color =>
   `${color.rgb[0]} ${color.rgb[1]} ${color.rgb[2]}\t${color.role}`
 ).join('\n')}`]
 
