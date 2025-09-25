@@ -57,7 +57,9 @@ function App() {
       })
 
       if (!res.ok) {
-        throw new Error(`Export failed: ${res.status}`)
+        let detail = ''
+        try { detail = await res.text() } catch { /* ignore */ }
+        throw new Error(`Export failed: ${res.status}${detail ? ` - ${detail}` : ''}`)
       }
 
       // Create download link
