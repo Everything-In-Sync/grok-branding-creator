@@ -238,4 +238,39 @@ async function generateSwatchesPng(palette: Palette): Promise<Uint8Array> {
   return strToU8(svg)
 }
 
+function generateReadme(palette: Palette): string {
+  return `# ${palette.name} Brand Package
+
+Generated on: ${new Date().toISOString().split('T')[0]}
+
+## Color Palette
+
+This package contains your brand color palette with suggested typography.
+
+### Roles
+- Primary: ${palette.roles.primary.hex}
+- Secondary: ${palette.roles.secondary.hex}
+- Accent: ${palette.roles.accent.hex}
+- Neutral: ${palette.roles.neutral.hex}
+- Background: ${palette.roles.background.hex}
+
+### Typography
+- Headline: ${palette.typography.headline}
+- Body: ${palette.typography.body}
+
+## Files Included
+- palette.json — Full data
+- styles.css — CSS custom properties (tokens)
+- styles.scss — SCSS variables
+- tailwind.config.snippet.js — Tailwind color snippet
+- swatches.png — Color preview
+- readme.txt — This guide
+
+## Quick Start
+- CSS: import styles.css and use var(--color-primary)
+- SCSS: import styles.scss and use $color-primary
+- Tailwind: merge tailwind.config.snippet.js into your config
+`
+}
+
 
