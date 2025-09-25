@@ -55,6 +55,7 @@ router.post('/send-export', async (req, res) => {
 
     // Generate HTML email content
     const htmlContent = generateEmailHTML(contact, palette, content, exportType)
+    const textContent = generateEmailText(contact, exportType)
 
     // Send email
     const mailOptions = {
@@ -62,6 +63,7 @@ router.post('/send-export', async (req, res) => {
       to: 'robert@sandhillsgeeks.com', // Your specified email
       subject: `Brand Export Request - ${contact.businessName} - ${exportType.toUpperCase()}`,
       html: htmlContent,
+      text: textContent,
       // Also send a copy to the user
       bcc: contact.email
     }
@@ -78,6 +80,16 @@ router.post('/send-export', async (req, res) => {
     })
   }
 })
+
+function generateEmailText(contact: EmailRequest['contact'], exportType: string): string {
+  return `Hey ${contact.name} at ${contact.businessName},
+
+Here is the ${exportType.toUpperCase()} file you requested.
+
+Is ${contact.email} still the best email to reach you?
+
+Thanks!`
+}
 
 function generateEmailHTML(contact: any, palette: Palette, content: string, exportType: string): string {
   const exportTypeLabel = exportType.toUpperCase()
