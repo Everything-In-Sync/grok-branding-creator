@@ -11,7 +11,7 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
     const selected = palettes[paletteIndex] || palettes[0]
     // Build rich files
     const paletteJson = JSON.stringify(palettes, null, 2)
-    const tokensCss = generateCSSProperties(selected).replace('/* ${palette.name} Brand Colors */', `/* ${selected.name} Brand Colors */`)
+    const tokensCss = generateCSSProperties(selected)
     const tokensScss = generateSCSSVariables(selected)
     const tailwindJs = generateTailwindConfig(selected)
     const readmeTxt = generateReadme(selected)
@@ -70,8 +70,8 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
         'content-disposition': 'attachment; filename="brand-package.zip"'
       }
     })
-  } catch (e) {
-    return new Response('Failed to create zip', { status: 500 })
+  } catch (e: any) {
+    return new Response(`Failed to create zip: ${e?.message || e}`, { status: 500 })
   }
 }
 
@@ -212,14 +212,23 @@ module.exports = {
 async function generateSwatchesPng(palette: Palette): Promise<Uint8Array> {
   const width = 800
   const itemH = 80
-  const height = itemH * palette.swatches.length
+  const sourceSwatches = Array.isArray((palette as any).swatches) && (palette as any).swatches.length
+    ? (palette as any).swatches as any[]
+    : [
+      { role: 'primary', hex: palette.roles.primary.hex, textOn: palette.roles.primary.textOn },
+      { role: 'secondary', hex: palette.roles.secondary.hex, textOn: palette.roles.secondary.textOn },
+      { role: 'accent', hex: palette.roles.accent.hex, textOn: palette.roles.accent.textOn },
+      { role: 'neutral', hex: palette.roles.neutral.hex, textOn: palette.roles.neutral.textOn },
+      { role: 'background', hex: palette.roles.background.hex, textOn: palette.roles.background.textOn },
+    ]
+  const height = itemH * sourceSwatches.length
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
   <style>
     .label{font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold}
     .code{font-family:monospace;font-size:14px}
   </style>
-  ${palette.swatches.map((c, i) => {
+  ${sourceSwatches.map((c: any, i: number) => {
     const y = i * itemH
     const textColor = c.textOn === 'light' ? '#ffffff' : '#000000'
     return `
