@@ -48,8 +48,8 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
           form.append('subject', subject)
           form.append('html', html)
 
-          const file = new File([zipped], 'brand-package.zip', { type: 'application/zip' })
-          form.append('attachment', file)
+          const blob = new Blob([zipped], { type: 'application/zip' })
+          form.append('attachment', blob, 'brand-package.zip')
 
           const auth = 'Basic ' + btoa(`api:${MAILGUN_API_KEY}`)
           await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
