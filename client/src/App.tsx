@@ -140,20 +140,20 @@ function App() {
           return
       }
 
-      // Send email with contact data and content
-      await sendExportEmail(contactData, palette, content, selectedExportType)
-
-      // Copy to clipboard for CSS/SCSS/Tailwind with safe fallback
+      // Provide content to user first (clipboard or download)
       if (selectedExportType === 'css' || selectedExportType === 'scss' || selectedExportType === 'tailwind') {
         const copied = await copyTextToClipboard(content)
-        if (copied) {
-          alert(`${selectedExportType.toUpperCase()} copied to clipboard! We've also sent it to your email.`)
-        } else {
-          // As a fallback, download the content as a file so the user still gets it immediately
-          const filename = `export.${selectedExportType === 'tailwind' ? 'js' : selectedExportType}`
+        if (!copied) {
+          const filename = `brand.${selectedExportType === 'tailwind' ? 'js' : selectedExportType}`
           downloadTextFile(content, filename)
-          alert(`We emailed your ${selectedExportType.toUpperCase()}. Clipboard copy was blocked, so we downloaded a file instead.`)
         }
+      }
+
+      // Try to send email (non-blocking for UX)
+      try {
+        await sendExportEmail(contactData, palette, content, selectedExportType)
+      } catch (e) {
+        console.warn('Email send failed (non-blocking):', e)
       }
 
       setModalOpen(false)
