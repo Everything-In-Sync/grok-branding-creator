@@ -15,7 +15,7 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
     const tokensScss = generateSCSSVariables(selected)
     const tailwindJs = generateTailwindConfig(selected)
     const readmeTxt = generateReadme(selected)
-    const pngBytes = await generateSwatchesPng(selected)
+    const swatchesSvg = generateSwatchesSvg(selected)
 
     const files: Record<string, Uint8Array> = {
       'palette.json': strToU8(paletteJson),
@@ -23,7 +23,7 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
       'styles.scss': strToU8(tokensScss),
       'tailwind.config.snippet.js': strToU8(tailwindJs),
       'readme.txt': strToU8(readmeTxt),
-      'swatches.png': pngBytes,
+      'swatches.svg': strToU8(swatchesSvg),
     }
 
     const zipped = zipSync(files, { level: 0 })
@@ -210,7 +210,7 @@ module.exports = {
   return config.join('\n')
 }
 
-async function generateSwatchesPng(palette: Palette): Promise<Uint8Array> {
+function generateSwatchesSvg(palette: Palette): string {
   const width = 800
   const itemH = 80
   const sourceSwatches = Array.isArray((palette as any).swatches) && (palette as any).swatches.length
@@ -223,7 +223,7 @@ async function generateSwatchesPng(palette: Palette): Promise<Uint8Array> {
       { role: 'background', hex: palette.roles.background.hex, textOn: palette.roles.background.textOn },
     ]
   const height = itemH * sourceSwatches.length
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
   <style>
     .label{font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold}
@@ -238,10 +238,6 @@ async function generateSwatchesPng(palette: Palette): Promise<Uint8Array> {
     <text class="code" x="${width - 16}" y="${y + 50}" fill="${textColor}" text-anchor="end">${c.hex.toUpperCase()}</text>`
   }).join('')}
 </svg>`
-
-  // Convert SVG to PNG using resvg-wasm is too heavy for Pages; instead return the SVG bytes with .png name.
-  // Most systems can preview SVG; but per your request we keep .png name for convenience.
-  return strToU8(svg)
 }
 
 function generateReadme(palette: Palette): string {
@@ -269,7 +265,7 @@ This package contains your brand color palette with suggested typography.
 - styles.css — CSS custom properties (tokens)
 - styles.scss — SCSS variables
 - tailwind.config.snippet.js — Tailwind color snippet
-- swatches.png — Color preview
+- swatches.svg — Color preview
 - readme.txt — This guide
 
 ## Quick Start
@@ -278,4 +274,3 @@ This package contains your brand color palette with suggested typography.
 - Tailwind: merge tailwind.config.snippet.js into your config
 `
 }
-
