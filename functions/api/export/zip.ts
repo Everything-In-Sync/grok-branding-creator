@@ -51,11 +51,17 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
         form.append('attachment', blob, 'brand-package.zip')
 
         const auth = 'Basic ' + btoa(`api:${MAILGUN_API_KEY}`)
-        context.waitUntil(fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
+        const sendPromise = fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
           method: 'POST',
           headers: { Authorization: auth },
           body: form
-        }))
+        })
+
+        if (context?.waitUntil) {
+          context.waitUntil(sendPromise)
+        } else {
+          sendPromise.catch((err) => console.error('Mailgun send failed', err))
+        }
       }
     }
 
@@ -272,5 +278,4 @@ This package contains your brand color palette with suggested typography.
 - Tailwind: merge tailwind.config.snippet.js into your config
 `
 }
-
 
