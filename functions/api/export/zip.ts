@@ -36,7 +36,9 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
         (MAILGUN_DOMAIN ? `Brand Generator <noreply@${MAILGUN_DOMAIN}>` : undefined)
       const OWNER_EMAIL = (env as any)?.MAILGUN_TO as string | undefined
 
-      if (MAILGUN_API_KEY && MAILGUN_DOMAIN && MAILGUN_FROM) {
+      const mailgunAvailable = MAILGUN_API_KEY && MAILGUN_DOMAIN && MAILGUN_FROM
+
+      if (mailgunAvailable) {
         const subject = `Brand ZIP - ${contactData.businessName}`
         const html = `<p>Hi ${escapeHtml(contactData.name)},</p><p>Attached is your brand ZIP package with styles.css, styles.scss, Tailwind snippet, and a swatch preview image.</p>`
 
@@ -51,17 +53,31 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
         form.append('attachment', blob, 'brand-package.zip')
 
         const auth = 'Basic ' + btoa(`api:${MAILGUN_API_KEY}`)
-        const sendPromise = fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
-          method: 'POST',
-          headers: { Authorization: auth },
-          body: form
+
+        const sendMailgun = async () => {
+          const response = await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
+            method: 'POST',
+            headers: { Authorization: auth },
+            body: form
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => '')
+            throw new Error(`Mailgun responded with ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`)
+          }
+        }
+
+        const sendPromise = sendMailgun().catch((err) => {
+          console.error('Mailgun send failed:', err)
         })
 
         if (context?.waitUntil) {
           context.waitUntil(sendPromise)
         } else {
-          sendPromise.catch((err) => console.error('Mailgun send failed', err))
+          await sendPromise
         }
+      } else {
+        console.warn('Mailgun environment variables missing; skipping export email')
       }
     }
 
