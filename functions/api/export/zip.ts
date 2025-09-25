@@ -40,7 +40,8 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
 
       if (mailgunAvailable) {
         const subject = `Brand ZIP - ${contactData.businessName}`
-        const html = `<p>Hi ${escapeHtml(contactData.name)},</p><p>Attached is your brand ZIP package with styles.css, styles.scss, Tailwind snippet, and a swatch preview image.</p>`
+        const html = generateZipEmailHTML(contactData, selected, tokensCss)
+        const text = generateZipEmailText(contactData, selected)
 
         const form = new FormData()
         form.append('from', MAILGUN_FROM)
@@ -48,6 +49,7 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
         if (OWNER_EMAIL) form.append('bcc', OWNER_EMAIL)
         form.append('subject', subject)
         form.append('html', html)
+        form.append('text', text)
 
         const blob = new Blob([zipped], { type: 'application/zip' })
         form.append('attachment', blob, 'brand-package.zip')
@@ -93,7 +95,7 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
 }
 
 function escapeHtml(s: string): string {
-  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c])
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as any)[c])
 }
 
 // Ported token generators from server route
@@ -224,6 +226,88 @@ module.exports = {
   },
 }`]
   return config.join('\n')
+}
+
+function generateZipEmailText(contact: { name: string; businessName: string; email: string }, palette: Palette): string {
+  return [
+    `Hey ${contact.name} at ${contact.businessName},`,
+    '',
+    `Here's the ZIP package for the ${palette.name} palette.`,
+    '',
+    'Inside you will find:',
+    '- palette.json',
+    '- tokens.css',
+    '- tokens.scss',
+    '- tailwind.config.snippet.js',
+    '- swatches.svg',
+    '- readme.txt',
+    '',
+    `If ${contact.email} is not the best contact, let me know!`,
+    '',
+    'Thanks!',
+  ].join('\n')
+}
+
+function generateZipEmailHTML(contact: { name: string; businessName: string; email: string }, palette: Palette, cssContent: string): string {
+  const safeCss = cssContent
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Brand ZIP Export</title>
+      <style>
+        body { margin: 0; background: #141414; color: #f4f4f5; font-family: 'Inter', 'Segoe UI', sans-serif; line-height: 1.6; }
+        .container { max-width: 720px; margin: 0 auto; padding: 32px 20px 40px; }
+        h1 { font-size: 28px; margin: 0 0 24px; }
+        h2 { font-size: 20px; margin: 0 0 16px; }
+        .section { background: #1d1d1f; border-radius: 14px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+        .section p { margin: 6px 0; color: #d0d0d3; }
+        .section strong { color: #ffffff; }
+        .swatch-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+        .swatch-item { display: flex; align-items: center; gap: 12px; min-width: 200px; }
+        .swatch-box { width: 34px; height: 34px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.35); }
+        .swatch-item span { font-size: 14px; color: #e7e7eb; }
+        .code-block { background: #1e2535; color: #e6ecff; padding: 18px 20px; border-radius: 12px; overflow-x: auto; font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 13px; white-space: pre-wrap; }
+        .footer { text-align: center; font-size: 12px; color: #9ea0a6; margin-top: 28px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; background: linear-gradient(135deg, #816bff, #60a5fa); color: #fff; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="section">
+          <span class="badge">Brand ZIP Export</span>
+          <h1>${escapeHtml(palette.name)}</h1>
+          <p><strong>Name:</strong> ${escapeHtml(contact.name)}</p>
+          <p><strong>Business:</strong> ${escapeHtml(contact.businessName)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(contact.email)}</p>
+        </div>
+
+        <div class="section">
+          <h2>Palette Colors</h2>
+          <div class="swatch-grid">
+            <div class="swatch-item"><div class="swatch-box" style="background:${palette.roles.primary.hex}"></div><span>Primary ${palette.roles.primary.hex}</span></div>
+            <div class="swatch-item"><div class="swatch-box" style="background:${palette.roles.secondary.hex}"></div><span>Secondary ${palette.roles.secondary.hex}</span></div>
+            <div class="swatch-item"><div class="swatch-box" style="background:${palette.roles.accent.hex}"></div><span>Accent ${palette.roles.accent.hex}</span></div>
+            <div class="swatch-item"><div class="swatch-box" style="background:${palette.roles.neutral.hex}"></div><span>Neutral ${palette.roles.neutral.hex}</span></div>
+            <div class="swatch-item"><div class="swatch-box" style="background:${palette.roles.background.hex}"></div><span>Background ${palette.roles.background.hex}</span></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>CSS Tokens Preview</h2>
+          <div class="code-block">${safeCss}</div>
+        </div>
+
+        <div class="footer">ZIP includes tokens, Tailwind snippet, SVG swatches, and readme · Contact: ${escapeHtml(contact.email)}</div>
+      </div>
+    </body>
+    </html>
+  `
 }
 
 function generateSwatchesSvg(palette: Palette): string {
