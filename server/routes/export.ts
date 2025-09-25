@@ -5,6 +5,7 @@ import fs from 'fs/promises'
 import { fileURLToPath } from 'url'
 import nodemailer from 'nodemailer'
 import { Color, Palette } from '../../shared/types.js'
+import { recordDownload } from '../utils/downloadLogger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -37,6 +38,21 @@ router.post('/export/zip', async (req, res) => {
         // Don't fail the ZIP download if email fails
       }
     }
+
+    // Record download attempt
+    await recordDownload({
+      timestamp: new Date().toISOString(),
+      exportType: 'zip',
+      contact: contactData,
+      palette: {
+        name: palette.name,
+        seedBack: palette.seedBack
+      },
+      meta: {
+        paletteIndex,
+        source: 'zip-export-route'
+      }
+    })
 
     // Set headers for ZIP download
     const filename = `brand-package-${palette.name.toLowerCase().replace(/\s+/g, '-')}.zip`

@@ -1,6 +1,7 @@
 import express from 'express'
 import nodemailer from 'nodemailer'
 import { Palette } from '../../shared/types.js'
+import { recordDownload, DownloadLogEntry } from '../utils/downloadLogger.js'
 
 const router = express.Router()
 
@@ -12,7 +13,7 @@ interface EmailRequest {
   }
   palette: Palette
   content: string
-  exportType: string
+  exportType: 'css' | 'scss' | 'tailwind' | 'zip'
 }
 
 // POST /api/send-export - Send export email
@@ -24,6 +25,22 @@ router.post('/send-export', async (req, res) => {
     if (!contact.name || !contact.businessName || !contact.email || !content) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
+
+    // Record download event regardless of email status
+    const exportTypeValue: DownloadLogEntry['exportType'] = exportType
+
+    await recordDownload({
+      timestamp: new Date().toISOString(),
+      exportType: exportTypeValue,
+      contact,
+      palette: {
+        name: palette.name,
+        seedBack: palette.seedBack
+      },
+      meta: {
+        source: 'send-export-route'
+      }
+    })
 
     // Create email transporter (you'll need to configure this with your email service)
     const transporter = nodemailer.createTransport({
