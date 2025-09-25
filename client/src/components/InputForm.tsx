@@ -144,13 +144,13 @@ export function InputForm({ onGenerate, onExport, loading, response }: InputForm
             <h3>Export Options</h3>
             <div className="export-buttons">
               <button type="button" onClick={() => onExport('css')} className="export-button">
-                Copy CSS
+                Download CSS
               </button>
               <button type="button" onClick={() => onExport('scss')} className="export-button">
-                Copy SCSS
+                Download SCSS
               </button>
               <button type="button" onClick={() => onExport('tailwind')} className="export-button">
-                Copy Tailwind
+                Download Tailwind
               </button>
               <button type="button" onClick={() => onExport('zip')} className="export-button export-button-primary">
                 Download ZIP
