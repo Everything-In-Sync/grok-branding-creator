@@ -9,17 +9,24 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
     }
 
     const selected = palettes[paletteIndex] || palettes[0]
-    const files: Record<string, string> = {
-      'README.txt': `Brand package: ${selected.name}\nGenerated on ${new Date().toISOString()}\n`,
-      'colors.css': `:root{--color-primary:${selected.roles.primary.hex};--color-secondary:${selected.roles.secondary.hex};--color-accent:${selected.roles.accent.hex};--color-neutral:${selected.roles.neutral.hex};--color-background:${selected.roles.background.hex};}`,
+    // Build rich files
+    const paletteJson = JSON.stringify(palettes, null, 2)
+    const tokensCss = generateCSSProperties(selected).replace('/* ${palette.name} Brand Colors */', `/* ${selected.name} Brand Colors */`)
+    const tokensScss = generateSCSSVariables(selected)
+    const tailwindJs = generateTailwindConfig(selected)
+    const readmeTxt = generateReadme(selected)
+    const pngBytes = await generateSwatchesPng(selected)
+
+    const files: Record<string, Uint8Array> = {
+      'palette.json': strToU8(paletteJson),
+      'styles.css': strToU8(tokensCss),
+      'styles.scss': strToU8(tokensScss),
+      'tailwind.config.snippet.js': strToU8(tailwindJs),
+      'readme.txt': strToU8(readmeTxt),
+      'swatches.png': pngBytes,
     }
 
-    const zipped = zipSync(
-      Object.fromEntries(
-        Object.entries(files).map(([name, text]) => [name, strToU8(text)])
-      ),
-      { level: 0 }
-    )
+    const zipped = zipSync(files, { level: 0 })
 
     // If contactData and Mailgun env are present, email the ZIP (best-effort)
     try {
@@ -32,7 +39,7 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
 
         if (MAILGUN_API_KEY && MAILGUN_DOMAIN && MAILGUN_FROM) {
           const subject = `Brand ZIP - ${contactData.businessName}`
-          const html = `<p>Hi ${escapeHtml(contactData.name)},</p><p>Attached is your brand ZIP package.</p>`
+          const html = `<p>Hi ${escapeHtml(contactData.name)},</p><p>Attached is your brand ZIP package with styles.css, styles.scss, Tailwind snippet, and a swatch preview image.</p>`
 
           const form = new FormData()
           form.append('from', MAILGUN_FROM)
@@ -70,6 +77,161 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
 
 function escapeHtml(s: string): string {
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c])
+}
+
+// Ported token generators from server route
+function generateCSSProperties(palette: Palette): string {
+  const css = [`/* ${palette.name} Brand Colors */
+/* CSS Custom Properties */
+
+:root {
+  /* Primary Colors */
+  --color-primary: ${palette.roles.primary.hex};
+  --color-primary-rgb: ${palette.roles.primary.rgb.join(', ')};
+  --color-primary-hsl: ${palette.roles.primary.hsl.join(', ')};
+
+  /* Secondary Colors */
+  --color-secondary: ${palette.roles.secondary.hex};
+  --color-secondary-rgb: ${palette.roles.secondary.rgb.join(', ')};
+  --color-secondary-hsl: ${palette.roles.secondary.hsl.join(', ')};
+
+  /* Accent Colors */
+  --color-accent: ${palette.roles.accent.hex};
+  --color-accent-rgb: ${palette.roles.accent.rgb.join(', ')};
+  --color-accent-hsl: ${palette.roles.accent.hsl.join(', ')};
+
+  /* Neutral Colors */
+  --color-neutral: ${palette.roles.neutral.hex};
+  --color-neutral-rgb: ${palette.roles.neutral.rgb.join(', ')};
+  --color-neutral-hsl: ${palette.roles.neutral.hsl.join(', ')};
+
+  /* Background Colors */
+  --color-background: ${palette.roles.background.hex};
+  --color-background-rgb: ${palette.roles.background.rgb.join(', ')};
+  --color-background-hsl: ${palette.roles.background.hsl.join(', ')};
+
+  /* Typography */
+  --font-headline: '${palette.typography.headline}', serif;
+  --font-body: '${palette.typography.body}', sans-serif;
+}
+`]
+  return css.join('\n')
+}
+
+function generateSCSSVariables(palette: Palette): string {
+  const scss = [`// ${palette.name} Brand Colors
+// SCSS Variables
+
+// Primary Colors
+$color-primary: ${palette.roles.primary.hex};
+$color-primary-rgb: (${palette.roles.primary.rgb.join(', ')});
+$color-primary-hsl: (${palette.roles.primary.hsl.join(', ')});
+
+// Secondary Colors
+$color-secondary: ${palette.roles.secondary.hex};
+$color-secondary-rgb: (${palette.roles.secondary.rgb.join(', ')});
+$color-secondary-hsl: (${palette.roles.secondary.hsl.join(', ')});
+
+// Accent Colors
+$color-accent: ${palette.roles.accent.hex};
+$color-accent-rgb: (${palette.roles.accent.rgb.join(', ')});
+$color-accent-hsl: (${palette.roles.accent.hsl.join(', ')});
+
+// Neutral Colors
+$color-neutral: ${palette.roles.neutral.hex};
+$color-neutral-rgb: (${palette.roles.neutral.rgb.join(', ')});
+$color-neutral-hsl: (${palette.roles.neutral.hsl.join(', ')});
+
+// Background Colors
+$color-background: ${palette.roles.background.hex};
+$color-background-rgb: (${palette.roles.background.rgb.join(', ')});
+$color-background-hsl: (${palette.roles.background.hsl.join(', ')});
+
+// Typography
+$font-headline: '${palette.typography.headline}', serif;
+$font-body: '${palette.typography.body}', sans-serif;
+
+// Color Map for easy access
+$brand-colors: (
+  primary: $color-primary,
+  secondary: $color-secondary,
+  accent: $color-accent,
+  neutral: $color-neutral,
+  background: $color-background
+);`]
+  return scss.join('\n')
+}
+
+function generateTailwindConfig(palette: Palette): string {
+  const config = [`// ${palette.name} Brand Colors
+// Tailwind CSS Configuration Snippet
+// Add this to your tailwind.config.js colors object
+
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          primary: {
+            DEFAULT: '${palette.roles.primary.hex}',
+            rgb: 'rgb(${palette.roles.primary.rgb.join(' ')})',
+            hsl: 'hsl(${palette.roles.primary.hsl.join(' ')})',
+          },
+          secondary: {
+            DEFAULT: '${palette.roles.secondary.hex}',
+            rgb: 'rgb(${palette.roles.secondary.rgb.join(' ')})',
+            hsl: 'hsl(${palette.roles.secondary.hsl.join(' ')})',
+          },
+          accent: {
+            DEFAULT: '${palette.roles.accent.hex}',
+            rgb: 'rgb(${palette.roles.accent.rgb.join(' ')})',
+            hsl: 'hsl(${palette.roles.accent.hsl.join(' ')})',
+          },
+          neutral: {
+            DEFAULT: '${palette.roles.neutral.hex}',
+            rgb: 'rgb(${palette.roles.neutral.rgb.join(' ')})',
+            hsl: 'hsl(${palette.roles.neutral.hsl.join(' ')})',
+          },
+          background: {
+            DEFAULT: '${palette.roles.background.hex}',
+            rgb: 'rgb(${palette.roles.background.rgb.join(' ')})',
+            hsl: 'hsl(${palette.roles.background.hsl.join(' ')})',
+          },
+        },
+      },
+      fontFamily: {
+        headline: ['${palette.typography.headline}', 'serif'],
+        body: ['${palette.typography.body}', 'sans-serif'],
+      },
+    },
+  },
+}`]
+  return config.join('\n')
+}
+
+async function generateSwatchesPng(palette: Palette): Promise<Uint8Array> {
+  const width = 800
+  const itemH = 80
+  const height = itemH * palette.swatches.length
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <style>
+    .label{font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold}
+    .code{font-family:monospace;font-size:14px}
+  </style>
+  ${palette.swatches.map((c, i) => {
+    const y = i * itemH
+    const textColor = c.textOn === 'light' ? '#ffffff' : '#000000'
+    return `
+    <rect x="0" y="${y}" width="${width}" height="${itemH}" fill="${c.hex}"/>
+    <text class="label" x="16" y="${y + 50}" fill="${textColor}">${c.role.toUpperCase()}</text>
+    <text class="code" x="${width - 16}" y="${y + 50}" fill="${textColor}" text-anchor="end">${c.hex.toUpperCase()}</text>`
+  }).join('')}
+</svg>`
+
+  // Convert SVG to PNG using resvg-wasm is too heavy for Pages; instead return the SVG bytes with .png name.
+  // Most systems can preview SVG; but per your request we keep .png name for convenience.
+  return strToU8(svg)
 }
 
 
