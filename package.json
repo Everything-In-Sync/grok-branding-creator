@@ -44,7 +44,8 @@
     "react-dom": "^19.1.1",
     "tinycolor2": "^1.6.0",
     "typescript": "^5.9.2",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "fflate": "^0.8.2"
   },
   "devDependencies": {
     "@types/chroma-js": "^3.1.1",
