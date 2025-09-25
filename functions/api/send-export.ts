@@ -28,10 +28,12 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
     form.append('subject', subject)
     form.append('html', html)
 
-    // Attach the export content as a file for convenience
-    const filename = `brand.${exportType === 'tailwind' ? 'js' : exportType}`
-    const file = new File([content], filename, { type: 'text/plain;charset=utf-8' })
-    form.append('attachment', file)
+    // Attach the export content as a file for convenience (non-zip types only)
+    if (exportType !== 'zip') {
+      const filename = `brand.${exportType === 'tailwind' ? 'js' : exportType}`
+      const file = new File([content], filename, { type: 'text/plain;charset=utf-8' })
+      form.append('attachment', file)
+    }
 
     const auth = 'Basic ' + btoa(`api:${MAILGUN_API_KEY}`)
     const res = await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
