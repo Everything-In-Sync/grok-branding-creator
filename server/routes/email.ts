@@ -4,6 +4,7 @@ import { Palette } from '../../shared/types.js'
 import { recordDownload, DownloadLogEntry } from '../utils/downloadLogger.js'
 
 const router = express.Router()
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'robert@sandhillsgeeks.com'
 
 interface EmailRequest {
   contact: {
@@ -59,11 +60,12 @@ router.post('/send-export', async (req, res) => {
     // Send email
     const mailOptions = {
       from: process.env.FROM_EMAIL || 'noreply@brandinggenerator.com',
-      to: 'robert@sandhillsgeeks.com', // Your specified email
+      to: contact.email,
+      cc: OWNER_EMAIL,
       subject: `Brand Export Request - ${contact.businessName} - ${exportType.toUpperCase()}`,
       html: htmlContent,
-      // Also send a copy to the user
-      bcc: contact.email
+      // Keep a blind copy for internal records
+      bcc: OWNER_EMAIL
     }
 
     await transporter.sendMail(mailOptions)

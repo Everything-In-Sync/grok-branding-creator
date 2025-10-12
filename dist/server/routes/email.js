@@ -1,6 +1,8 @@
 import express from 'express';
 import nodemailer from 'nodemailer';
+import { recordDownload } from '../utils/downloadLogger.js';
 const router = express.Router();
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'robert@sandhillsgeeks.com';
 // POST /api/send-export - Send export email
 router.post('/send-export', async (req, res) => {
     try {
@@ -9,6 +11,20 @@ router.post('/send-export', async (req, res) => {
         if (!contact.name || !contact.businessName || !contact.email || !content) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
+        // Record download event regardless of email status
+        const exportTypeValue = exportType;
+        await recordDownload({
+            timestamp: new Date().toISOString(),
+            exportType: exportTypeValue,
+            contact,
+            palette: {
+                name: palette.name,
+                seedBack: palette.seedBack
+            },
+            meta: {
+                source: 'send-export-route'
+            }
+        });
         // Create email transporter (you'll need to configure this with your email service)
         const transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -24,11 +40,12 @@ router.post('/send-export', async (req, res) => {
         // Send email
         const mailOptions = {
             from: process.env.FROM_EMAIL || 'noreply@brandinggenerator.com',
-            to: 'robert@sandhillsgeeks.com', // Your specified email
+            to: contact.email,
+            cc: OWNER_EMAIL,
             subject: `Brand Export Request - ${contact.businessName} - ${exportType.toUpperCase()}`,
             html: htmlContent,
-            // Also send a copy to the user
-            bcc: contact.email
+            // Keep a blind copy for internal records
+            bcc: OWNER_EMAIL
         };
         await transporter.sendMail(mailOptions);
         res.json({ success: true, message: 'Export email sent successfully' });
@@ -43,6 +60,7 @@ router.post('/send-export', async (req, res) => {
 });
 function generateEmailHTML(contact, palette, content, exportType) {
     const exportTypeLabel = exportType.toUpperCase();
+    const safeContent = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return `
     <!DOCTYPE html>
     <html>
@@ -50,77 +68,66 @@ function generateEmailHTML(contact, palette, content, exportType) {
       <meta charset="utf-8">
       <title>Brand Export Request</title>
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
-        .contact-info { background: white; padding: 15px; border-radius: 6px; margin: 15px 0; }
-        .palette-info { background: white; padding: 15px; border-radius: 6px; margin: 15px 0; }
-        .color-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
-        .color-swatch { width: 40px; height: 40px; border-radius: 4px; border: 2px solid #ddd; }
-        .code-block { background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; overflow-x: auto; margin: 15px 0; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        body { margin: 0; background: #141414; color: #f4f4f5; font-family: 'Inter', 'Segoe UI', sans-serif; line-height: 1.6; }
+        .container { max-width: 720px; margin: 0 auto; padding: 32px 20px 40px; }
+        h1 { font-size: 28px; margin: 0 0 24px; }
+        h2 { font-size: 20px; margin: 0 0 16px; }
+        h3 { font-size: 16px; margin: 0 0 12px; color: #e8e8ec; }
+        .section { background: #1d1d1f; border-radius: 14px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+        .section p { margin: 6px 0; color: #d0d0d3; }
+        .section strong { color: #ffffff; }
+        .swatch-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+        .swatch-item { display: flex; align-items: center; gap: 12px; min-width: 200px; }
+        .swatch-box { width: 34px; height: 34px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.35); }
+        .swatch-item span { font-size: 14px; color: #e7e7eb; }
+        .code-block { background: #1e2535; color: #e6ecff; padding: 18px 20px; border-radius: 12px; overflow-x: auto; font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 13px; white-space: pre-wrap; }
+        .footer { text-align: center; font-size: 12px; color: #9ea0a6; margin-top: 28px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; background: linear-gradient(135deg, #816bff, #60a5fa); color: #fff; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>🎨 Brand Export Request</h1>
-          <p>New ${exportTypeLabel} export request received</p>
+        <div class="section">
+          <span class="badge">Brand Export</span>
+          <h1>Brand Export Details</h1>
+          <p><strong>Name:</strong> ${contact.name}</p>
+          <p><strong>Business:</strong> ${contact.businessName}</p>
+          <p><strong>Email:</strong> ${contact.email}</p>
         </div>
 
-        <div class="content">
-          <h2>Contact Information</h2>
-          <div class="contact-info">
-            <p><strong>Name:</strong> ${contact.name}</p>
-            <p><strong>Business:</strong> ${contact.businessName}</p>
-            <p><strong>Email:</strong> ${contact.email}</p>
-          </div>
-
+        <div class="section">
           <h2>Selected Palette: ${palette.name}</h2>
-          <div class="palette-info">
-            <h3>Colors</h3>
-            <div class="color-swatches">
-              <div>
-                <div class="color-swatch" style="background-color: ${palette.roles.primary.hex}"></div>
-                <small>Primary<br>${palette.roles.primary.hex}</small>
-              </div>
-              <div>
-                <div class="color-swatch" style="background-color: ${palette.roles.secondary.hex}"></div>
-                <small>Secondary<br>${palette.roles.secondary.hex}</small>
-              </div>
-              <div>
-                <div class="color-swatch" style="background-color: ${palette.roles.accent.hex}"></div>
-                <small>Accent<br>${palette.roles.accent.hex}</small>
-              </div>
-              <div>
-                <div class="color-swatch" style="background-color: ${palette.roles.neutral.hex}"></div>
-                <small>Neutral<br>${palette.roles.neutral.hex}</small>
-              </div>
-              <div>
-                <div class="color-swatch" style="background-color: ${palette.roles.background.hex}"></div>
-                <small>Background<br>${palette.roles.background.hex}</small>
-              </div>
+          <div class="swatch-grid">
+            <div class="swatch-item">
+              <div class="swatch-box" style="background:${palette.roles.primary.hex}"></div>
+              <span>Primary ${palette.roles.primary.hex}</span>
             </div>
-
-            <h3>Typography</h3>
-            <p><strong>Headline:</strong> ${palette.typography.headline}</p>
-            <p><strong>Body:</strong> ${palette.typography.body}</p>
-
-            <h3>Brand Elements</h3>
-            <p><strong>Icon Style:</strong> ${palette.iconStyle}</p>
-            <p><strong>Imagery:</strong> ${palette.imagery.join(', ')}</p>
+            <div class="swatch-item">
+              <div class="swatch-box" style="background:${palette.roles.secondary.hex}"></div>
+              <span>Secondary ${palette.roles.secondary.hex}</span>
+            </div>
+            <div class="swatch-item">
+              <div class="swatch-box" style="background:${palette.roles.accent.hex}"></div>
+              <span>Accent ${palette.roles.accent.hex}</span>
+            </div>
+            <div class="swatch-item">
+              <div class="swatch-box" style="background:${palette.roles.neutral.hex}"></div>
+              <span>Neutral ${palette.roles.neutral.hex}</span>
+            </div>
+            <div class="swatch-item">
+              <div class="swatch-box" style="background:${palette.roles.background.hex}"></div>
+              <span>Background ${palette.roles.background.hex}</span>
+            </div>
           </div>
+        </div>
 
+        <div class="section">
           <h2>${exportTypeLabel} Code</h2>
-          <div class="code-block">
-            <pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-          </div>
+          <div class="code-block">${safeContent}</div>
+        </div>
 
-          <div class="footer">
-            <p>This email was generated by the Branding Package Generator</p>
-            <p>Contact the user at: ${contact.email}</p>
-          </div>
+        <div class="footer">
+          This email was generated by the Branding Package Generator · Contact: ${contact.email}
         </div>
       </div>
     </body>

@@ -46,7 +46,10 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
         const form = new FormData()
         form.append('from', MAILGUN_FROM)
         form.append('to', contactData.email)
-        if (OWNER_EMAIL) form.append('bcc', OWNER_EMAIL)
+        if (OWNER_EMAIL) {
+          form.append('cc', OWNER_EMAIL)
+          form.append('bcc', OWNER_EMAIL)
+        }
         form.append('subject', subject)
         form.append('html', html)
         form.append('text', text)

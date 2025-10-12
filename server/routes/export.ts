@@ -11,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const router = express.Router()
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'robert@sandhillsgeeks.com'
 
 // POST /api/export/zip - Generate and download ZIP file with brand assets
 router.post('/export/zip', async (req, res) => {
@@ -431,10 +432,11 @@ async function sendExportEmail(contactData: { name: string; businessName: string
 
   const mailOptions = {
     from: process.env.FROM_EMAIL || 'noreply@brandinggenerator.com',
-    to: 'robert@sandhillsgeeks.com',
+    to: contactData.email,
+    cc: OWNER_EMAIL,
     subject: `Brand Export Request - ${contactData.businessName} - ${exportType.toUpperCase()}`,
     html: htmlContent,
-    bcc: contactData.email
+    bcc: OWNER_EMAIL
   }
 
   await transporter.sendMail(mailOptions)
