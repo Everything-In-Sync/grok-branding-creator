@@ -3,6 +3,7 @@ import archiver from 'archiver';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import { createCanvas } from 'canvas';
 import { recordDownload } from '../utils/downloadLogger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,6 +74,9 @@ router.post('/export/zip', async (req, res) => {
         // Add SVG swatches
         const svgContent = generateSVGSwatches(palette);
         archive.append(svgContent, { name: 'swatches.svg' });
+        // Add JPG swatches
+        const jpgContent = generateJPGSwatches(palette);
+        archive.append(jpgContent, { name: 'swatches.jpg' });
         // Add README with instructions
         const readmeContent = generateReadme(palette);
         archive.append(readmeContent, { name: 'readme.txt' });
@@ -260,6 +264,33 @@ function generateSVGSwatches(palette) {
   <desc>Brand color palette swatches for ${palette.name}</desc>${svgElements}
 </svg>`;
 }
+function generateJPGSwatches(palette) {
+    const swatches = getSwatches(palette);
+    const swatchWidth = 800;
+    const swatchHeight = 100;
+    const totalHeight = swatchHeight * swatches.length;
+    const canvas = createCanvas(swatchWidth, totalHeight);
+    const ctx = canvas.getContext('2d');
+    // Draw each color swatch
+    swatches.forEach((color, index) => {
+        const y = index * swatchHeight;
+        // Fill swatch background
+        ctx.fillStyle = color.hex;
+        ctx.fillRect(0, y, swatchWidth, swatchHeight);
+        // Determine text color based on background
+        ctx.fillStyle = color.textOn === 'light' ? '#ffffff' : '#000000';
+        // Draw role label
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText(color.role.charAt(0).toUpperCase() + color.role.slice(1), 20, y + 60);
+        // Draw hex code
+        ctx.font = '16px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(color.hex.toUpperCase(), swatchWidth - 20, y + 60);
+        ctx.textAlign = 'left'; // Reset alignment
+    });
+    // Convert canvas to JPG buffer
+    return canvas.toBuffer('image/jpeg', { quality: 0.95 });
+}
 function generateReadme(palette) {
     return `# ${palette.name} Brand Package
 
@@ -296,6 +327,7 @@ ${palette.logoPrompts.map(prompt => `- ${prompt}`).join('\n')}
 - \`tokens.scss\` - SCSS variables
 - \`tailwind.config.snippet.js\` - Tailwind CSS configuration
 - \`swatches.svg\` - Color swatches in SVG format
+- \`swatches.jpg\` - Color swatches in JPG format
 - \`palette.gpl\` - GIMP/Inkscape palette file
 - \`readme.txt\` - This documentation
 

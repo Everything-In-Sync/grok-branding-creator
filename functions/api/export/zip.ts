@@ -17,6 +17,14 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
     const readmeTxt = generateReadme(selected)
     const swatchesSvg = generateSwatchesSvg(selected)
 
+    // Generate JPG swatches using canvas (if available in Worker environment)
+    let swatchesJpg: Uint8Array | null = null
+    try {
+      swatchesJpg = await generateSwatchesJpg(selected)
+    } catch (e) {
+      console.warn('JPG generation not available in this environment:', e)
+    }
+
     const files: Record<string, Uint8Array> = {
       'palette.json': strToU8(paletteJson),
       'styles.css': strToU8(tokensCss),
@@ -24,6 +32,11 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
       'tailwind.config.snippet.js': strToU8(tailwindJs),
       'readme.txt': strToU8(readmeTxt),
       'swatches.svg': strToU8(swatchesSvg),
+    }
+
+    // Add JPG if generation succeeded
+    if (swatchesJpg) {
+      files['swatches.jpg'] = swatchesJpg
     }
 
     const zipped = zipSync(files, { level: 0 })
@@ -343,6 +356,56 @@ function generateSwatchesSvg(palette: Palette): string {
 </svg>`
 }
 
+async function generateSwatchesJpg(palette: Palette): Promise<Uint8Array> {
+  const width = 800
+  const itemH = 100
+  const sourceSwatches = Array.isArray((palette as any).swatches) && (palette as any).swatches.length
+    ? (palette as any).swatches as any[]
+    : [
+      { role: 'primary', hex: palette.roles.primary.hex, textOn: palette.roles.primary.textOn },
+      { role: 'secondary', hex: palette.roles.secondary.hex, textOn: palette.roles.secondary.textOn },
+      { role: 'accent', hex: palette.roles.accent.hex, textOn: palette.roles.accent.textOn },
+      { role: 'neutral', hex: palette.roles.neutral.hex, textOn: palette.roles.neutral.textOn },
+      { role: 'background', hex: palette.roles.background.hex, textOn: palette.roles.background.textOn },
+    ]
+  const height = itemH * sourceSwatches.length
+
+  // Use OffscreenCanvas if available (Cloudflare Workers)
+  const canvas = new OffscreenCanvas(width, height)
+  const ctx = canvas.getContext('2d')
+  
+  if (!ctx) {
+    throw new Error('Canvas context not available')
+  }
+
+  // Draw each color swatch
+  sourceSwatches.forEach((color: any, index: number) => {
+    const y = index * itemH
+
+    // Fill swatch background
+    ctx.fillStyle = color.hex
+    ctx.fillRect(0, y, width, itemH)
+
+    // Determine text color based on background
+    ctx.fillStyle = color.textOn === 'light' ? '#ffffff' : '#000000'
+
+    // Draw role label
+    ctx.font = 'bold 20px Arial'
+    ctx.fillText(color.role.charAt(0).toUpperCase() + color.role.slice(1), 20, y + 60)
+
+    // Draw hex code
+    ctx.font = '16px monospace'
+    ctx.textAlign = 'right'
+    ctx.fillText(color.hex.toUpperCase(), width - 20, y + 60)
+    ctx.textAlign = 'left' // Reset alignment
+  })
+
+  // Convert canvas to JPG blob
+  const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.95 })
+  const arrayBuffer = await blob.arrayBuffer()
+  return new Uint8Array(arrayBuffer)
+}
+
 function generateReadme(palette: Palette): string {
   return `# ${palette.name} Brand Package
 
@@ -368,7 +431,8 @@ This package contains your brand color palette with suggested typography.
 - styles.css — CSS custom properties (tokens)
 - styles.scss — SCSS variables
 - tailwind.config.snippet.js — Tailwind color snippet
-- swatches.svg — Color preview
+- swatches.svg — Color preview (SVG format)
+- swatches.jpg — Color preview (JPG format)
 - readme.txt — This guide
 
 ## Quick Start
