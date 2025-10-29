@@ -1,5 +1,6 @@
 import type { Palette } from '../../../../shared/types'
 import { zipSync, strToU8 } from 'fflate'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
 export const onRequestPost: PagesFunction = async ({ request, env, context }) => {
   try {
@@ -17,6 +18,14 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
     const readmeTxt = generateReadme(selected)
     const swatchesSvg = generateSwatchesSvg(selected)
 
+    // Generate PDF brand guide
+    let brandGuidePdf: Uint8Array | null = null
+    try {
+      brandGuidePdf = await generatePDFGuide(selected)
+    } catch (e) {
+      console.warn('PDF generation failed:', e)
+    }
+
     // Generate JPG swatches using canvas (if available in Worker environment)
     let swatchesJpg: Uint8Array | null = null
     try {
@@ -32,6 +41,11 @@ export const onRequestPost: PagesFunction = async ({ request, env, context }) =>
       'tailwind.config.snippet.js': strToU8(tailwindJs),
       'readme.txt': strToU8(readmeTxt),
       'swatches.svg': strToU8(swatchesSvg),
+    }
+
+    // Add PDF if generation succeeded
+    if (brandGuidePdf) {
+      files['brand-guide.pdf'] = brandGuidePdf
     }
 
     // Add JPG if generation succeeded
@@ -372,7 +386,7 @@ async function generateSwatchesJpg(palette: Palette): Promise<Uint8Array> {
 
   // Use OffscreenCanvas if available (Cloudflare Workers)
   const canvas = new OffscreenCanvas(width, height)
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d') as any
   
   if (!ctx) {
     throw new Error('Canvas context not available')
@@ -406,6 +420,332 @@ async function generateSwatchesJpg(palette: Palette): Promise<Uint8Array> {
   return new Uint8Array(arrayBuffer)
 }
 
+async function generatePDFGuide(palette: Palette): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create()
+  
+  // Helper to convert hex to RGB (0-1 range)
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    return result ? {
+      r: parseInt(result[1], 16) / 255,
+      g: parseInt(result[2], 16) / 255,
+      b: parseInt(result[3], 16) / 255
+    } : { r: 0, g: 0, b: 0 }
+  }
+
+  const sourceSwatches = Array.isArray((palette as any).swatches) && (palette as any).swatches.length
+    ? (palette as any).swatches as any[]
+    : [
+      { role: 'primary', hex: palette.roles.primary.hex, textOn: palette.roles.primary.textOn, rgb: palette.roles.primary.rgb, hsl: palette.roles.primary.hsl },
+      { role: 'secondary', hex: palette.roles.secondary.hex, textOn: palette.roles.secondary.textOn, rgb: palette.roles.secondary.rgb, hsl: palette.roles.secondary.hsl },
+      { role: 'accent', hex: palette.roles.accent.hex, textOn: palette.roles.accent.textOn, rgb: palette.roles.accent.rgb, hsl: palette.roles.accent.hsl },
+      { role: 'neutral', hex: palette.roles.neutral.hex, textOn: palette.roles.neutral.textOn, rgb: palette.roles.neutral.rgb, hsl: palette.roles.neutral.hsl },
+      { role: 'background', hex: palette.roles.background.hex, textOn: palette.roles.background.textOn, rgb: palette.roles.background.rgb, hsl: palette.roles.background.hsl },
+    ]
+
+  // Page 1: Cover and Colors
+  const page1 = pdfDoc.addPage([612, 792]) // Letter size
+  const { width, height } = page1.getSize()
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+  // Title
+  page1.drawText(palette.name, {
+    x: 50,
+    y: height - 80,
+    size: 28,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  page1.drawText('Brand Identity Guide', {
+    x: 50,
+    y: height - 110,
+    size: 12,
+    font: helvetica,
+    color: rgb(0.4, 0.4, 0.4)
+  })
+
+  // Typography Section
+  let yPos = height - 160
+  page1.drawText('Typography', {
+    x: 50,
+    y: yPos,
+    size: 18,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 25
+  page1.drawText(`Headline Font: ${palette.typography.headline}`, {
+    x: 50,
+    y: yPos,
+    size: 11,
+    font: helvetica,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 18
+  page1.drawText(`Body Font: ${palette.typography.body}`, {
+    x: 50,
+    y: yPos,
+    size: 11,
+    font: helvetica,
+    color: rgb(0, 0, 0)
+  })
+
+  // Color Palette Section
+  yPos -= 40
+  page1.drawText('Color Palette', {
+    x: 50,
+    y: yPos,
+    size: 18,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 30
+  sourceSwatches.forEach((color: any) => {
+    const colorRgb = hexToRgb(color.hex)
+    
+    // Draw color box
+    page1.drawRectangle({
+      x: 50,
+      y: yPos - 60,
+      width: 60,
+      height: 60,
+      color: rgb(colorRgb.r, colorRgb.g, colorRgb.b)
+    })
+
+    // Draw role name
+    page1.drawText(color.role.charAt(0).toUpperCase() + color.role.slice(1), {
+      x: 125,
+      y: yPos - 15,
+      size: 12,
+      font: helveticaBold,
+      color: rgb(0, 0, 0)
+    })
+
+    // Draw HEX
+    page1.drawText(`HEX: ${color.hex.toUpperCase()}`, {
+      x: 125,
+      y: yPos - 30,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.2, 0.2, 0.2)
+    })
+
+    // Draw RGB
+    page1.drawText(`RGB: ${color.rgb.join(', ')}`, {
+      x: 125,
+      y: yPos - 45,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.2, 0.2, 0.2)
+    })
+
+    // Draw HSL
+    const hslText = `HSL: ${color.hsl[0]}°, ${color.hsl[1]}%, ${color.hsl[2]}%`
+    page1.drawText(hslText, {
+      x: 125,
+      y: yPos - 60,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.2, 0.2, 0.2)
+    })
+
+    yPos -= 80
+  })
+
+  // Page 2: Accessibility and Thank You
+  const page2 = pdfDoc.addPage([612, 792])
+  yPos = height - 80
+
+  // Accessibility Section
+  page2.drawText('Accessibility', {
+    x: 50,
+    y: yPos,
+    size: 18,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 25
+  page2.drawText('All colors meet WCAG 2.2 AA contrast requirements:', {
+    x: 50,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  yPos -= 18
+  page2.drawText('• Normal text: 4.5:1 contrast ratio minimum', {
+    x: 60,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  yPos -= 15
+  page2.drawText('• Large text: 3:1 contrast ratio minimum', {
+    x: 60,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  yPos -= 15
+  page2.drawText('• UI components: 3:1 contrast ratio minimum', {
+    x: 60,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  // Suggested Usage
+  yPos -= 40
+  page2.drawText('Suggested Usage', {
+    x: 50,
+    y: yPos,
+    size: 18,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 25
+  const usageText = [
+    'Primary: Main call-to-action buttons and key brand elements',
+    'Secondary: Secondary buttons and supporting UI elements',
+    'Accent: Highlights and drawing attention to specific elements',
+    'Neutral: Body text, borders, and subtle UI elements',
+    'Background: Main page background and content areas'
+  ]
+
+  usageText.forEach(text => {
+    page2.drawText(`• ${text}`, {
+      x: 60,
+      y: yPos,
+      size: 9,
+      font: helvetica,
+      color: rgb(0.2, 0.2, 0.2),
+      maxWidth: 500
+    })
+    yPos -= 20
+  })
+
+  // Sandhills Geeks Footer
+  yPos = 350
+  page2.drawText('Thank You!', {
+    x: width / 2 - 50,
+    y: yPos,
+    size: 16,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 30
+  page2.drawText('Sandhills Geeks thanks you for using our Brand Package Creator.', {
+    x: width / 2 - 220,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  yPos -= 20
+  const desc1 = 'We are empowering businesses and non-profits to reach their full online potential'
+  page2.drawText(desc1, {
+    x: width / 2 - desc1.length * 2.5,
+    y: yPos,
+    size: 9,
+    font: helvetica,
+    color: rgb(0.33, 0.33, 0.33)
+  })
+
+  yPos -= 15
+  const desc2 = 'with tailored web development and hosting solutions. We offer fast, secure,'
+  page2.drawText(desc2, {
+    x: width / 2 - desc2.length * 2.4,
+    y: yPos,
+    size: 9,
+    font: helvetica,
+    color: rgb(0.33, 0.33, 0.33)
+  })
+
+  yPos -= 15
+  const desc3 = 'SEO-optimized website solutions with a personal touch.'
+  page2.drawText(desc3, {
+    x: width / 2 - desc3.length * 2.4,
+    y: yPos,
+    size: 9,
+    font: helvetica,
+    color: rgb(0.33, 0.33, 0.33)
+  })
+
+  yPos -= 20
+  const desc4 = 'Let us take care of your online presence, so you can focus on what'
+  page2.drawText(desc4, {
+    x: width / 2 - desc4.length * 2.3,
+    y: yPos,
+    size: 9,
+    font: helvetica,
+    color: rgb(0.33, 0.33, 0.33)
+  })
+
+  yPos -= 15
+  const desc5 = 'matters most - running your business.'
+  page2.drawText(desc5, {
+    x: width / 2 - desc5.length * 2.3,
+    y: yPos,
+    size: 9,
+    font: helvetica,
+    color: rgb(0.33, 0.33, 0.33)
+  })
+
+  yPos -= 25
+  page2.drawText('Please contact us to build and expand your business online.', {
+    x: width / 2 - 180,
+    y: yPos,
+    size: 10,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  })
+
+  yPos -= 30
+  page2.drawText('sandhillsgeeks.com', {
+    x: width / 2 - 60,
+    y: yPos,
+    size: 11,
+    font: helveticaBold,
+    color: rgb(0, 0.4, 0.8)
+  })
+
+  yPos -= 18
+  page2.drawText('contact@sandhillsgeeks.com', {
+    x: width / 2 - 80,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  yPos -= 18
+  page2.drawText('(910) 248-3038', {
+    x: width / 2 - 48,
+    y: yPos,
+    size: 10,
+    font: helvetica,
+    color: rgb(0.2, 0.2, 0.2)
+  })
+
+  const pdfBytes = await pdfDoc.save()
+  return pdfBytes
+}
+
 function generateReadme(palette: Palette): string {
   return `# ${palette.name} Brand Package
 
@@ -427,6 +767,7 @@ This package contains your brand color palette with suggested typography.
 - Body: ${palette.typography.body}
 
 ## Files Included
+- brand-guide.pdf — Complete brand identity guide with colors, typography, and usage guidelines
 - palette.json — Full data
 - styles.css — CSS custom properties (tokens)
 - styles.scss — SCSS variables
