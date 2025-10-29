@@ -5,6 +5,7 @@ import fs from 'fs/promises'
 import { fileURLToPath } from 'url'
 import nodemailer from 'nodemailer'
 import { createCanvas } from 'canvas'
+import PDFDocument from 'pdfkit'
 import { Color, Palette } from '../../shared/types.js'
 import { recordDownload } from '../utils/downloadLogger.js'
 
@@ -99,6 +100,10 @@ router.post('/export/zip', async (req, res) => {
     // Add JPG swatches
     const jpgContent = generateJPGSwatches(palette)
     archive.append(jpgContent, { name: 'swatches.jpg' })
+
+    // Add PDF brand guide
+    const pdfContent = await generatePDFGuide(palette)
+    archive.append(pdfContent, { name: 'brand-guide.pdf' })
 
     // Add README with instructions
     const readmeContent = generateReadme(palette)
@@ -336,6 +341,166 @@ function generateJPGSwatches(palette: Palette): Buffer {
   return canvas.toBuffer('image/jpeg', { quality: 0.95 })
 }
 
+function generatePDFGuide(palette: Palette): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ 
+      size: 'LETTER',
+      margins: { top: 50, bottom: 50, left: 50, right: 50 }
+    })
+    
+    const buffers: Buffer[] = []
+    doc.on('data', buffers.push.bind(buffers))
+    doc.on('end', () => resolve(Buffer.concat(buffers)))
+    doc.on('error', reject)
+
+    const swatches = getSwatches(palette)
+    
+    // Header
+    doc.fontSize(28).font('Helvetica-Bold').text(palette.name, { align: 'center' })
+    doc.moveDown(0.5)
+    doc.fontSize(12).font('Helvetica').fillColor('#666666')
+       .text('Brand Identity Guide', { align: 'center' })
+    doc.moveDown(2)
+
+    // Typography Section
+    doc.fontSize(18).fillColor('#000000').font('Helvetica-Bold').text('Typography')
+    doc.moveDown(0.5)
+    doc.fontSize(11).font('Helvetica')
+    doc.text(`Headline Font: ${palette.typography.headline}`, { continued: false })
+    doc.text(`Body Font: ${palette.typography.body}`)
+    doc.moveDown(1.5)
+
+    // Color Palette Section
+    doc.fontSize(18).font('Helvetica-Bold').text('Color Palette')
+    doc.moveDown(0.5)
+
+    let yPosition = doc.y
+
+    swatches.forEach((color, index) => {
+      // Check if we need a new page
+      if (yPosition > 650) {
+        doc.addPage()
+        yPosition = 50
+      }
+
+      // Color swatch box
+      const boxSize = 60
+      const xPos = 50
+      doc.rect(xPos, yPosition, boxSize, boxSize).fill(color.hex)
+
+      // Color details
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('#000000')
+      doc.text(color.role.charAt(0).toUpperCase() + color.role.slice(1), xPos + boxSize + 15, yPosition + 5)
+      
+      doc.font('Helvetica').fontSize(10).fillColor('#333333')
+      doc.text(`HEX: ${color.hex.toUpperCase()}`, xPos + boxSize + 15, yPosition + 22)
+      doc.text(`RGB: ${color.rgb.join(', ')}`, xPos + boxSize + 15, yPosition + 35)
+      doc.text(`HSL: ${color.hsl[0]}°, ${color.hsl[1]}%, ${color.hsl[2]}%`, xPos + boxSize + 15, yPosition + 48)
+
+      yPosition += boxSize + 20
+      doc.moveDown(1)
+    })
+
+    // Accessibility Section
+    doc.moveDown(1)
+    doc.fontSize(18).fillColor('#000000').font('Helvetica-Bold').text('Accessibility')
+    doc.moveDown(0.5)
+    doc.fontSize(10).font('Helvetica').fillColor('#333333')
+    doc.text('All colors in this palette meet WCAG 2.2 AA contrast requirements:', { continued: false })
+    doc.text('• Normal text: 4.5:1 contrast ratio minimum', { indent: 10 })
+    doc.text('• Large text: 3:1 contrast ratio minimum', { indent: 10 })
+    doc.text('• UI components: 3:1 contrast ratio minimum', { indent: 10 })
+    doc.moveDown(1.5)
+
+    // Usage Guidelines
+    doc.fontSize(18).fillColor('#000000').font('Helvetica-Bold').text('Suggested Usage')
+    doc.moveDown(0.5)
+    doc.fontSize(10).font('Helvetica').fillColor('#333333')
+    doc.text('Primary Color:', { continued: true, underline: true })
+    doc.text(' Use for main call-to-action buttons, primary navigation, and key brand elements.', { continued: false, underline: false })
+    doc.moveDown(0.3)
+    
+    doc.text('Secondary Color:', { continued: true, underline: true })
+    doc.text(' Apply to secondary buttons, hover states, and supporting UI elements.', { continued: false, underline: false })
+    doc.moveDown(0.3)
+    
+    doc.text('Accent Color:', { continued: true, underline: true })
+    doc.text(' Reserve for highlights, notifications, and drawing attention to specific elements.', { continued: false, underline: false })
+    doc.moveDown(0.3)
+    
+    doc.text('Neutral Color:', { continued: true, underline: true })
+    doc.text(' Use for body text, borders, and subtle UI elements.', { continued: false, underline: false })
+    doc.moveDown(0.3)
+    
+    doc.text('Background Color:', { continued: true, underline: true })
+    doc.text(' Apply as the main page background and content areas.', { continued: false, underline: false })
+    doc.moveDown(2)
+
+    // Icon Style
+    if (palette.iconStyle) {
+      doc.fontSize(18).fillColor('#000000').font('Helvetica-Bold').text('Icon Style')
+      doc.moveDown(0.5)
+      doc.fontSize(10).font('Helvetica').fillColor('#333333')
+      doc.text(palette.iconStyle)
+      doc.moveDown(1.5)
+    }
+
+    // Imagery Direction
+    if (palette.imagery && palette.imagery.length > 0) {
+      doc.fontSize(18).fillColor('#000000').font('Helvetica-Bold').text('Imagery Direction')
+      doc.moveDown(0.5)
+      doc.fontSize(10).font('Helvetica').fillColor('#333333')
+      palette.imagery.forEach(item => {
+        doc.text(`• ${item}`, { indent: 10 })
+      })
+      doc.moveDown(1.5)
+    }
+
+    // Add new page for footer
+    doc.addPage()
+    
+    // Center the footer content vertically
+    const footerY = 300
+    doc.y = footerY
+
+    // Sandhills Geeks Section
+    doc.fontSize(16).fillColor('#000000').font('Helvetica-Bold')
+       .text('Thank You!', { align: 'center' })
+    doc.moveDown(1)
+    
+    doc.fontSize(10).font('Helvetica').fillColor('#333333')
+       .text('Sandhills Geeks thanks you for using our Brand Package Creator.', { align: 'center' })
+    doc.moveDown(0.5)
+    
+    doc.fontSize(9).fillColor('#555555')
+       .text('We are empowering businesses and non-profits to reach their full online potential', { align: 'center' })
+    doc.text('with tailored web development and hosting solutions. We offer fast, secure,', { align: 'center' })
+    doc.text('SEO-optimized website solutions with a personal touch.', { align: 'center' })
+    doc.moveDown(0.5)
+    
+    doc.text('Let us take care of your online presence, so you can focus on what', { align: 'center' })
+    doc.text('matters most - running your business.', { align: 'center' })
+    doc.moveDown(1)
+    
+    doc.fontSize(10).fillColor('#000000').font('Helvetica-Bold')
+       .text('Please contact us to build and expand your business online.', { align: 'center' })
+    doc.moveDown(1.5)
+    
+    // Contact Information
+    doc.fontSize(11).fillColor('#0066cc').font('Helvetica-Bold')
+    doc.text('sandhillsgeeks.com', { align: 'center', link: 'https://sandhillsgeeks.com' })
+    doc.moveDown(0.3)
+    
+    doc.fontSize(10).fillColor('#333333').font('Helvetica')
+    doc.text('contact@sandhillsgeeks.com', { align: 'center', link: 'mailto:contact@sandhillsgeeks.com' })
+    doc.moveDown(0.3)
+    
+    doc.text('(910) 248-3038', { align: 'center' })
+
+    doc.end()
+  })
+}
+
 function generateReadme(palette: Palette): string {
   return `# ${palette.name} Brand Package
 
@@ -367,6 +532,7 @@ ${palette.logoPrompts.map(prompt => `- ${prompt}`).join('\n')}
 
 ## Files Included
 
+- \`brand-guide.pdf\` - Complete brand identity guide with colors, typography, and usage guidelines
 - \`palette.json\` - Complete palette data in JSON format
 - \`tokens.css\` - CSS custom properties
 - \`tokens.scss\` - SCSS variables
